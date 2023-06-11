@@ -12,17 +12,8 @@ def main():
     # print(df_num)
 
     tr = Train(df_num)
-    df_tr, df_ts = tr.split()
-    print(df_tr)
-    # print(df_ts)
-    y_tr = df_tr['rating']
-    X_tr = df_tr.drop('rating', axis=1)
-    y_ts = df_ts['rating']
-    X_ts = df_ts.drop('rating', axis = 1)
-    print(X_tr)
-
-    print(y_tr)
-    # X_tr, X_ts, y_tr, y_ts = tr.split()
+    X_tr, X_ts, y_tr, y_ts = tr.split()
+    tr.fit_models()
 
 if __name__ == '__main__':
     main()
