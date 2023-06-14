@@ -6,13 +6,33 @@ from sklearn.linear_model import LinearRegression
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.metrics import mean_squared_error
 
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import tqdm
+
+class Net(nn.Module):
+    def __init__(self, n_hidden):
+        super(Net, self).__init__()
+        self.fc1 = nn.Linear(n_hidden, 10)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(10, 1)
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.fc2(x)
+        return x
+
 
 class Train:
     def __init__(self, data):
         self.data = data
+        device = torch.device("cpu")
+        net = Net(data.shape[1]).to(device)
         self.models = {
             'Linear Regression': LinearRegression(),
-            'Decision Tree Regression': DecisionTreeRegressor()
+            'Decision Tree Regression': DecisionTreeRegressor(),
+            'Custom Neural Network': net
         }
         self.X_tr = None
         self.y_tr = None
@@ -52,12 +72,66 @@ class Train:
         self.X_val = X_val
         self.y_val = y_val
         return X_tr, X_ts, y_tr, y_ts
-    
+    def train_network(self, model, optimizer, criterion, batch_size = 64, n_epochs = 100):
+        batch_start = torch.arange(0, self.X_tr.shape[0], batch_size)
+        # Hold the best model
+        best_mse = np.inf   # init to infinity
+        best_weights = None
+        history = []
+        
+        # for i in tqdm.tqdm(range(10)):
+        #     print('hi')
+        # training loop
+        for epoch in range(n_epochs):
+            model.train()
+            with tqdm.tqdm(batch_start, unit="batch", mininterval=0, disable=True) as bar:
+                bar.set_description(f"Epoch {epoch}")
+                for start in bar:
+                    # take a batch
+                    start_index = start.item()
+                    X_batch = self.X_tr[start_index:start_index+batch_size]
+                    y_batch = self.y_tr[start_index:start_index+batch_size]
+                    optimizer.zero_grad()
+                    print(X_batch.shape)
+                    # forward pass
+                    y_pred = model(torch.Tensor(X_batch.values))
+                    loss = criterion(y_pred, y_batch)
+                    # backward pass
+                    optimizer.zero_grad()
+                    loss.backward()
+                    # update weights
+                    optimizer.step()
+                    # print progress
+                    bar.set_postfix(mse=float(loss))
+            # evaluate accuracy at end of each epoch
+            model.eval()
+            y_pred = model(torch.Tensor(self.X_val.values))
+            mse = criterion(y_pred, self.y_val)
+            mse = float(mse)
+            history.append(mse)
+            if mse < best_mse:
+                best_mse = mse
+                best_weights = model.state_dict()
+        print(f'Best Validation RMSE: {np.sqrt(best_mse)}' )
+        # restore model and return best accuracy
+        model.load_state_dict(best_weights)
+        return model
+
     def fit_models(self):
         for model_name, model in self.models.items():
             print(f"Training with {model_name}")
-            model.fit(self.X_tr, self.y_tr)
-            y_pred = model.predict(self.X_val)
+            if model_name == 'Custom Neural Network':
+                n_epochs = 100   # number of epochs to run
+                batch_size = 64  # size of each batch
+                optimizer = optim.SGD(model.parameters(), lr=0.01)
+                criterion = nn.MSELoss()
+                self.train_network(model, optimizer, criterion, batch_size = batch_size, n_epochs=n_epochs)
+
+                
+
+            else:
+                model.fit(self.X_tr, self.y_tr)
+                y_pred = model.predict(self.X_val)
             print(f'Root Mean squared error: {mean_squared_error(self.y_val, y_pred, squared=False)}' )
 
     
