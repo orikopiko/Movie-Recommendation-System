@@ -14,21 +14,34 @@ import tqdm
 class Net(nn.Module):
     def __init__(self, n_hidden):
         super(Net, self).__init__()
+        # print(n_hidden)
         self.fc1 = nn.Linear(n_hidden, 10)
-        self.relu = nn.ReLU()
+        self.relu1 = nn.ReLU()
         self.fc2 = nn.Linear(10, 1)
+        # self.relu2 = nn.ReLU()
+        # self.fc3 = nn.Linear(50,10)
+        # self.relu3 = nn.ReLU()
+        # self.fc4 = nn.Linear(10, 1)
     def forward(self, x):
         x = self.fc1(x)
-        x = self.relu(x)
+        x = self.relu1(x)
         x = self.fc2(x)
+        # x = self.relu2(x)
+        # x = self.fc3(x)
+        # x = self.relu3(x)
+        # x = self.fc4(x)
         return x
 
 
 class Train:
     def __init__(self, data):
         self.data = data
+        # print(data.columns)
+        # print(data.info())
+        # print(data)
+        # print(data.shape[1])
         device = torch.device("cpu")
-        net = Net(data.shape[1]).to(device)
+        net = Net(data.shape[1]-1).to(device) # our training data will have 1 less feature (drop rating)
         self.models = {
             'Linear Regression': LinearRegression(),
             'Decision Tree Regression': DecisionTreeRegressor(),
@@ -75,7 +88,7 @@ class Train:
     def train_network(self, model, optimizer, criterion, batch_size = 64, n_epochs = 100):
         batch_start = torch.arange(0, self.X_tr.shape[0], batch_size)
         # Hold the best model
-        best_mse = np.inf   # init to infinity
+        best_mse = 100   # init to a number larger than the scale (0-5)
         best_weights = None
         history = []
         
@@ -91,8 +104,10 @@ class Train:
                     start_index = start.item()
                     X_batch = self.X_tr[start_index:start_index+batch_size]
                     y_batch = self.y_tr[start_index:start_index+batch_size]
+                    y_batch = torch.Tensor(y_batch.values)
                     optimizer.zero_grad()
-                    print(X_batch.shape)
+                    
+
                     # forward pass
                     y_pred = model(torch.Tensor(X_batch.values))
                     loss = criterion(y_pred, y_batch)
@@ -106,12 +121,15 @@ class Train:
             # evaluate accuracy at end of each epoch
             model.eval()
             y_pred = model(torch.Tensor(self.X_val.values))
-            mse = criterion(y_pred, self.y_val)
+            
+            mse = criterion(y_pred, torch.Tensor(self.y_val.values))
             mse = float(mse)
             history.append(mse)
             if mse < best_mse:
                 best_mse = mse
                 best_weights = model.state_dict()
+        print(f'Number of constraints: {self.X_tr.shape[0]}')
+        # print(f'Number of weights: {best_weights.shape}')
         print(f'Best Validation RMSE: {np.sqrt(best_mse)}' )
         # restore model and return best accuracy
         model.load_state_dict(best_weights)
@@ -125,14 +143,12 @@ class Train:
                 batch_size = 64  # size of each batch
                 optimizer = optim.SGD(model.parameters(), lr=0.01)
                 criterion = nn.MSELoss()
-                self.train_network(model, optimizer, criterion, batch_size = batch_size, n_epochs=n_epochs)
-
-                
+                self.train_network(model, optimizer, criterion, batch_size = batch_size, n_epochs=n_epochs)                
 
             else:
                 model.fit(self.X_tr, self.y_tr)
                 y_pred = model.predict(self.X_val)
-            print(f'Root Mean squared error: {mean_squared_error(self.y_val, y_pred, squared=False)}' )
+                print(f'Root Mean squared error: {mean_squared_error(self.y_val, y_pred, squared=False)}' )
 
     
 
