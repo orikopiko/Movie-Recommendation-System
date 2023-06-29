@@ -110,6 +110,8 @@ class Train:
 
                     # forward pass
                     y_pred = model(torch.Tensor(X_batch.values))
+                    y_pred = y_pred.squeeze()
+                    y_batch = y_batch.squeeze()
                     loss = criterion(y_pred, y_batch)
                     # backward pass
                     optimizer.zero_grad()
@@ -130,7 +132,7 @@ class Train:
                 best_weights = model.state_dict()
         print(f'Number of constraints: {self.X_tr.shape[0]}')
         # print(f'Number of weights: {best_weights.shape}')
-        print(f'Best Validation RMSE: {np.sqrt(best_mse)}' )
+        print(f'Best Validation RMSE for NN: {np.sqrt(best_mse)}' )
         # restore model and return best accuracy
         model.load_state_dict(best_weights)
         return model
